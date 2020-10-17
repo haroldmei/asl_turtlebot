@@ -228,6 +228,7 @@ class Supervisor:
         mode (i.e. the finite state machine's state), if takes appropriate
         actions. This function shouldn't return anything """
 
+        mapping = True #self.params.mapping   # huh??
         if not self.params.use_gazebo:
             try:
                 origin_frame = "/map" if mapping else "/odom"

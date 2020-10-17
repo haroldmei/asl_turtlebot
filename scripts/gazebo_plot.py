@@ -62,7 +62,7 @@ class GazeboPlot:
             self.count += 1
 
     def run(self):
-        rospy.init_node('gazebo_plot', anonymous=True)
+        #rospy.init_node('gazebo_plot', anonymous=True)
         rospy.Subscriber('/gazebo/model_states', ModelStates, self.gazebo_callback)
         rate = rospy.Rate(10)
         while not rospy.is_shutdown():
