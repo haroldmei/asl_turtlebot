@@ -96,6 +96,7 @@ class PoseControllerNode:
         self.y = msg.y
         self.theta = msg.theta
 
+        self.controller.load_goal(self.x, self.y, self.theta)   # need to reload goal every time it I receive the goal msg.
         ########## Code ends here ##########
 
         # Record time of pose update
