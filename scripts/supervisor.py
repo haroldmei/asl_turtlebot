@@ -100,7 +100,7 @@ class Supervisor:
         if self.params.rviz:
             rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.rviz_goal_callback)
         else:
-            self.x_g, self.y_g, self.theta_g = 1.5, -4., 0.
+            self.x_g, self.y_g, self.theta_g = 1.5, -5., 0.
             self.mode = Mode.NAV
         
 
@@ -151,7 +151,6 @@ class Supervisor:
         dist = msg.distance
         # if close enough and in nav mode, stop
         if dist > 0 and dist < self.params.stop_min_dist and self.mode == Mode.NAV:
-            print "+++++ stop_sign_detected_callback init_stop_sign dist: ", dist
             self.init_stop_sign()
 
 
