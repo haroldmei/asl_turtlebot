@@ -149,9 +149,9 @@ class Supervisor:
 
         # distance of the stop sign
         dist = msg.distance
-        print "stop_sign_detected_callback ", dist, self.mode
         # if close enough and in nav mode, stop
         if dist > 0 and dist < self.params.stop_min_dist and self.mode == Mode.NAV:
+            print "+++++ stop_sign_detected_callback init_stop_sign dist: ", dist
             self.init_stop_sign()
 
 
@@ -260,7 +260,6 @@ class Supervisor:
 
         elif self.mode == Mode.STOP:
             # At a stop sign
-            # at a stop sign
             if self.has_stopped():
                 self.init_crossing()
             else:
