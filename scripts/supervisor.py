@@ -263,7 +263,7 @@ class Supervisor:
                 self.init_crossing()
             else:
                 self.stay_idle()
-            #self.nav_to_pose()
+                #self.nav_to_pose()
 
         elif self.mode == Mode.CROSS:
             # Crossing an intersection
