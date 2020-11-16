@@ -74,9 +74,14 @@ class Detector:
         self.object_labels = load_object_labels(PATH_TO_LABELS)
 
         self.tf_listener = TransformListener()
-        rospy.Subscriber('/raspicam_node/image_raw', Image, self.camera_callback, queue_size=1, buff_size=2**24)
-        rospy.Subscriber('/raspicam_node/image/compressed', CompressedImage, self.compressed_camera_callback, queue_size=1, buff_size=2**24)
-        rospy.Subscriber('/raspicam_node/camera_info', CameraInfo, self.camera_info_callback)
+        #rospy.Subscriber('/raspicam_node/image_raw', Image, self.camera_callback, queue_size=1, buff_size=2**24)
+        #rospy.Subscriber('/raspicam_node/image/compressed', CompressedImage, self.compressed_camera_callback, queue_size=1, buff_size=2**24)
+        #rospy.Subscriber('/raspicam_node/camera_info', CameraInfo, self.camera_info_callback)
+
+        rospy.Subscriber('/camera/image_raw', Image, self.camera_callback, queue_size=1, buff_size=2**24)
+        rospy.Subscriber('/camera/image/compressed', CompressedImage, self.compressed_camera_callback, queue_size=1, buff_size=2**24)
+        rospy.Subscriber('/camera/camera_info', CameraInfo, self.camera_info_callback)
+
         rospy.Subscriber('/scan', LaserScan, self.laser_callback)
 
     def run_detection(self, img):
@@ -214,7 +219,7 @@ class Detector:
         if num > 0:
             # create list of detected objects
             detected_objects = DetectedObjectList()
-
+            print "detected_objects:", detected_objects
             # some objects were detected
             for (box,sc,cl) in zip(boxes, scores, classes):
                 ymin = int(box[0]*img_h)
@@ -263,8 +268,8 @@ class Detector:
             self.detected_objects_pub.publish(detected_objects)
 
         # displays the camera image
-        #cv2.imshow("Camera", img_bgr8)
-        #cv2.waitKey(1)
+        cv2.imshow("Camera", img_bgr8)
+        cv2.waitKey(1)
 
     def camera_info_callback(self, msg):
         """ extracts relevant camera intrinsic parameters from the camera_info message.
