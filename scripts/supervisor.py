@@ -3,7 +3,7 @@
 from enum import Enum
 
 import rospy
-from asl_turtlebot.msg import DetectedObject
+from asl_turtlebot.msg import DetectedObject, DetectedObjectList
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Twist, PoseArray, Pose2D, PoseStamped
 from std_msgs.msg import Float32MultiArray, String
@@ -27,7 +27,7 @@ class SupervisorParams:
         self.use_gazebo = rospy.get_param("sim")
 
         # How is nav_cmd being decided -- human manually setting it, or rviz
-        self.rviz = rospy.get_param("rviz")
+        self.rviz = False #rospy.get_param("rviz")
 
         # If using gmapping, we will have a map frame. Otherwise, it will be odom frame.
         self.mapping = rospy.get_param("map")
@@ -75,6 +75,8 @@ class Supervisor:
         self.mode = Mode.IDLE
         self.prev_mode = None  # For printing purposes
 
+        self.detected_objects = {}
+        
         ########## PUBLISHERS ##########
 
         # Command pose for controller
@@ -88,6 +90,10 @@ class Supervisor:
         # Stop sign detector
         rospy.Subscriber('/detector/stop_sign', DetectedObject, self.stop_sign_detected_callback)
 
+        # Food delivery
+        rospy.Subscriber('/delivery_request', String, self.delivery_request_callback)
+        rospy.Subscriber('/detector/objects', DetectedObjectList, self.detected_objects_name_callback, queue_size=10)
+
         # High-level navigation pose
         rospy.Subscriber('/nav_pose', Pose2D, self.nav_pose_callback)
 
@@ -100,11 +106,28 @@ class Supervisor:
         if self.params.rviz:
             rospy.Subscriber('/move_base_simple/goal', PoseStamped, self.rviz_goal_callback)
         else:
-            self.x_g, self.y_g, self.theta_g = 1.5, -4., 0.
+            self.x_g, self.y_g, self.theta_g = 1.5, -5., 0.
             self.mode = Mode.NAV
         
 
     ########## SUBSCRIBER CALLBACKS ##########
+
+    def detected_objects_name_callback(self, msg):
+        rospy.loginfo("There are %i detected objects" % len(msg.objects))
+        #self.detected_objects = msg
+        for obj in msg.objects:
+            rospy.loginfo("obj1: %s" % msg.objects[0])
+            self.detected_objects[obj] = (self.x, self.y, self.theta)
+        self.last_box_time = rospy.get_rostime()
+
+    def delivery_request_callback(self, msg):
+        if msg.data in self.detected_objects:
+            rospy.loginfo("New order: %s, set goal: %s" % (msg.data, str(self.detected_objects[msg.data])))
+        else:
+            rospy.loginfo("New order: %s, no goal found. " % (msg.data))
+            
+        # plan the robot
+        self.last_box_time = rospy.get_rostime()
 
     def gazebo_callback(self, msg):
         if "turtlebot3_burger" not in msg.name:
@@ -149,7 +172,6 @@ class Supervisor:
 
         # distance of the stop sign
         dist = msg.distance
-
         # if close enough and in nav mode, stop
         if dist > 0 and dist < self.params.stop_min_dist and self.mode == Mode.NAV:
             self.init_stop_sign()
@@ -228,6 +250,7 @@ class Supervisor:
         mode (i.e. the finite state machine's state), if takes appropriate
         actions. This function shouldn't return anything """
 
+        mapping = True #self.params.mapping   # huh??
         if not self.params.use_gazebo:
             try:
                 origin_frame = "/map" if self.params.mapping else "/odom"
@@ -259,11 +282,18 @@ class Supervisor:
 
         elif self.mode == Mode.STOP:
             # At a stop sign
-            self.nav_to_pose()
+            if self.has_stopped():
+                self.init_crossing()
+            else:
+                self.stay_idle()
+                #self.nav_to_pose()
 
         elif self.mode == Mode.CROSS:
             # Crossing an intersection
-            self.nav_to_pose()
+            if self.has_crossed():
+                self.mode = Mode.NAV
+            else:
+                self.nav_to_pose()
 
         elif self.mode == Mode.NAV:
             if self.close_to(self.x_g, self.y_g, self.theta_g):

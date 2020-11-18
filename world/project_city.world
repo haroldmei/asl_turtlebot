@@ -850,6 +850,7 @@
       </link>
       <pose frame=''>3.55 1.4 0.0 0.0 0.0 3.14159</pose>
     </model>
+    
 
     <model name='flag'>
       <link name='plate'>
