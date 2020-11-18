@@ -65,8 +65,8 @@ class Navigator:
         self.plan_start = [0.,0.]
         
         # Robot limits
-        self.v_max = rospy.get_param("~v_max", 0.2)    # 0.2    # maximum velocity
-        self.om_max = rospy.get_param("~om_max", 0.4)   # 0.4   # maximum angular velocity
+        self.v_max = rospy.get_param("~v_max", 0.3)    # 0.2    # maximum velocity
+        self.om_max = rospy.get_param("~om_max", 1.0)   # 0.4   # maximum angular velocity
 
         self.v_des = 0.12   # desired cruising velocity
         self.theta_start_thresh = 0.05   # threshold in theta to start moving forward when path-following
@@ -107,6 +107,10 @@ class Navigator:
         rospy.Subscriber('/map_metadata', MapMetaData, self.map_md_callback)
         rospy.Subscriber('/cmd_nav', Pose2D, self.cmd_nav_callback)
 
+        # Food delivery
+        rospy.Subscriber('/delivery_request', String, self.delivery_request_callback)
+        rospy.Subscriber('/detector/objects', DetectedObjectList, self.detected_objects_name_callback, queue_size=10)
+
         print "finished init"
         
     def dyn_cfg_callback(self, config, level):
@@ -119,6 +123,27 @@ class Navigator:
         self.traj_dt = config["traj_dt"]
         
         return config
+
+    def detected_objects_name_callback(self, msg):
+        rospy.loginfo("There are %i detected objects" % len(msg.objects))
+        #self.detected_objects = msg
+        for obj in msg.objects:
+            rospy.loginfo("obj1: %s" % msg.objects[0])
+            self.detected_objects[obj] = (self.x, self.y, self.theta)
+        self.last_box_time = rospy.get_rostime()
+
+    def delivery_request_callback(self, msg):
+        if msg.data in self.detected_objects:
+            rospy.loginfo("New order: %s, set goal: %s" % (msg.data, str(self.detected_objects[msg.data])))
+            self.x_g, self.y_g, self.theta_g = self.detected_objects[msg.data]
+            self.replan()
+
+        else:
+            rospy.loginfo("New order: %s, no goal found. " % (msg.data))
+            
+        # plan the robot
+        self.last_box_time = rospy.get_rostime()
+
 
     def cmd_nav_callback(self, data):
         """
