@@ -268,6 +268,7 @@ class Detector:
             self.detected_objects_pub.publish(detected_objects)
 
         # displays the camera image
+        print "detected_objects num:", num
         cv2.imshow("Camera", img_bgr8)
         cv2.waitKey(1)
 
