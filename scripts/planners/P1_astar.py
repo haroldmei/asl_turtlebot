@@ -226,20 +226,3 @@ class DetOccupancyGrid2D(object):
         ax.set(xlim=(0,self.width), ylim=(0,self.height))
 
 
-# test
-width = 10
-height = 10
-obstacles = [((6,7),(8,8)),((2,2),(4,3)),((2,5),(4,7)),((6,3),(8,5))]
-occupancy = DetOccupancyGrid2D(width, height, obstacles)
-
-x_init = (1, 1)
-x_goal = (9, 9)
-#occupancy.plot()
-
-astar = AStar((0, 0), (width, height), x_init, x_goal, occupancy)
-if not astar.solve():
-    print "No path found"
-else:
-    plt.rcParams['figure.figsize'] = [5, 5]
-    astar.plot_path()
-    astar.plot_tree()
