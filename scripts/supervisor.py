@@ -123,6 +123,9 @@ class Supervisor:
     def delivery_request_callback(self, msg):
         if msg.data in self.detected_objects:
             rospy.loginfo("New order: %s, set goal: %s" % (msg.data, str(self.detected_objects[msg.data])))
+            self.x_g, self.y_g, self.theta_g = self.detected_objects[msg.data]
+            self.nav_to_pose()
+
         else:
             rospy.loginfo("New order: %s, no goal found. " % (msg.data))
             
