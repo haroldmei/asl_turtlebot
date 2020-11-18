@@ -3,7 +3,7 @@
 from enum import Enum
 
 import rospy
-from asl_turtlebot.msg import DetectedObject
+from asl_turtlebot.msg import DetectedObject, DetectedObjectList
 from gazebo_msgs.msg import ModelStates
 from geometry_msgs.msg import Twist, PoseArray, Pose2D, PoseStamped
 from std_msgs.msg import Float32MultiArray, String
@@ -88,6 +88,10 @@ class Supervisor:
         # Stop sign detector
         rospy.Subscriber('/detector/stop_sign', DetectedObject, self.stop_sign_detected_callback)
 
+        # Food delivery
+        rospy.Subscriber('/delivery_request', String, self.delivery_request_callback)
+        rospy.Subscriber('/detector/objects', DetectedObjectList, self.detected_objects_name_callback, queue_size=10)
+
         # High-level navigation pose
         rospy.Subscriber('/nav_pose', Pose2D, self.nav_pose_callback)
 
@@ -105,6 +109,15 @@ class Supervisor:
         
 
     ########## SUBSCRIBER CALLBACKS ##########
+
+    def detected_objects_name_callback(self, msg):
+        rospy.loginfo("There are %i detected objects" % len(msg.objects))
+        self.detected_objects = msg
+        self.last_box_time = rospy.get_rostime()
+
+    def delivery_request_callback(self, msg):
+        rospy.loginfo("New order: %s" % (msg))
+        self.last_box_time = rospy.get_rostime()
 
     def gazebo_callback(self, msg):
         if "turtlebot3_burger" not in msg.name:
