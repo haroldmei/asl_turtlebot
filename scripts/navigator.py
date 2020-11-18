@@ -16,7 +16,7 @@ from controllers import PoseController, TrajectoryTracker, HeadingController
 from enum import Enum
 
 from dynamic_reconfigure.server import Server
-from asl_turtlebot.cfg import NavigatorConfig
+from asl_turtlebot.cfg import NavigatorConfig, DetectedObjectList
 
 # state machine modes, not all implemented
 class Mode(Enum):
