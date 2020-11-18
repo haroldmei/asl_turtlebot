@@ -27,7 +27,7 @@ class SupervisorParams:
         self.use_gazebo = rospy.get_param("sim")
 
         # How is nav_cmd being decided -- human manually setting it, or rviz
-        self.rviz = rospy.get_param("rviz")
+        self.rviz = False #rospy.get_param("rviz")
 
         # If using gmapping, we will have a map frame. Otherwise, it will be odom frame.
         self.mapping = rospy.get_param("map")
@@ -75,6 +75,8 @@ class Supervisor:
         self.mode = Mode.IDLE
         self.prev_mode = None  # For printing purposes
 
+        self.detected_objects = {}
+        
         ########## PUBLISHERS ##########
 
         # Command pose for controller
@@ -112,11 +114,14 @@ class Supervisor:
 
     def detected_objects_name_callback(self, msg):
         rospy.loginfo("There are %i detected objects" % len(msg.objects))
-        self.detected_objects = msg
+        #self.detected_objects = msg
+        for obj in msg.objects:
+            self.detected_objects[obj] = (self.x, self.y, self.theta)
         self.last_box_time = rospy.get_rostime()
 
     def delivery_request_callback(self, msg):
-        rospy.loginfo("New order: %s" % (msg))
+        rospy.loginfo("New order: %s, set goal: %s" % (msg, str(self.detected_objects[msg])))
+        # plan the robot
         self.last_box_time = rospy.get_rostime()
 
     def gazebo_callback(self, msg):
