@@ -120,7 +120,11 @@ class Supervisor:
         self.last_box_time = rospy.get_rostime()
 
     def delivery_request_callback(self, msg):
-        rospy.loginfo("New order: %s, set goal: %s" % (msg, str(self.detected_objects[msg])))
+        if msg in self.detected_objects:
+            rospy.loginfo("New order: %s, set goal: %s" % (msg, str(self.detected_objects[msg])))
+        else:
+            rospy.loginfo("New order: %s, no goal found. " % (msg))
+            
         # plan the robot
         self.last_box_time = rospy.get_rostime()
 
