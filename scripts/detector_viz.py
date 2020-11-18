@@ -36,6 +36,7 @@ class DetectorViz:
 
     def detected_objects_name_callback(self, msg):
         rospy.loginfo("There are %i detected objects" % len(msg.objects))
+        rospy.loginfo("Object 1: %s" % str(msg.objects[0]))
         self.detected_objects = msg
         self.last_box_time = rospy.get_rostime()
 

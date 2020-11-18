@@ -116,14 +116,15 @@ class Supervisor:
         rospy.loginfo("There are %i detected objects" % len(msg.objects))
         #self.detected_objects = msg
         for obj in msg.objects:
+            rospy.loginfo("obj1: %s" % msg.objects[0])
             self.detected_objects[obj] = (self.x, self.y, self.theta)
         self.last_box_time = rospy.get_rostime()
 
     def delivery_request_callback(self, msg):
-        if msg in self.detected_objects:
-            rospy.loginfo("New order: %s, set goal: %s" % (msg, str(self.detected_objects[msg])))
+        if msg.data in self.detected_objects:
+            rospy.loginfo("New order: %s, set goal: %s" % (msg.data, str(self.detected_objects[msg.data])))
         else:
-            rospy.loginfo("New order: %s, no goal found. " % (msg))
+            rospy.loginfo("New order: %s, no goal found. " % (msg.data))
             
         # plan the robot
         self.last_box_time = rospy.get_rostime()
