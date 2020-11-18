@@ -103,6 +103,8 @@ class Navigator:
         self.trans_listener = tf.TransformListener()
 
         self.cfg_srv = Server(NavigatorConfig, self.dyn_cfg_callback)
+        
+        self.detected_objects = {}
 
         rospy.Subscriber('/map', OccupancyGrid, self.map_callback)
         rospy.Subscriber('/map_metadata', MapMetaData, self.map_md_callback)
