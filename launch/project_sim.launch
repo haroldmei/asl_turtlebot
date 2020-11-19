@@ -11,7 +11,7 @@
   <rosparam param="use_tf">true</rosparam>
 
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
-    <arg name="world_name" value="$(find asl_turtlebot)/world/project_city_flags.world"/>
+    <arg name="world_name" value="$(find asl_turtlebot)/world/project_city_final.world"/>
     <arg name="paused" value="false"/>
     <arg name="use_sim_time" value="true"/>
     <arg name="debug" value="false"/>
@@ -37,6 +37,8 @@
     <remap from="/joint_states" to="/turtlebot3_burger/joint_states" />
     <param name="publish_frequency" type="double" value="10.0" />
   </node>
+
+  <node pkg="asl_turtlebot" type="detector_mobilenet.py" name="turtlebot_detector" output="screen" />
 
   <node pkg="gmapping" type="slam_gmapping" name="turtlebot3_slam_gmapping" output="log">
     <param name="base_frame" value="base_footprint"/>
@@ -73,7 +75,7 @@
   </node>
 
   <node pkg="asl_turtlebot" type="goal_commander.py" name="goal_commander" />
-  <node pkg="asl_turtlebot" type="detector_mobilenet.py" name="turtlebot_detector" />
+  <node pkg="asl_turtlebot" type="navigator.py" name="turtlebot_navigator" output="screen" />
   <!-- <node pkg="asl_turtlebot" type="supervisor.py" name="turtlebot_supervisor" /> -->
 
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find asl_turtlebot)/rviz/project_sim.rviz"/>

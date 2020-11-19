@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# Home base [3.15 | 1.6 | 0.0]
 import rospy
 from nav_msgs.msg import OccupancyGrid, MapMetaData, Path
 from geometry_msgs.msg import Twist, Pose2D, PoseStamped
@@ -25,6 +25,8 @@ class Mode(Enum):
     ALIGN = 1
     TRACK = 2
     PARK = 3
+    VENDOR = 4
+    STOP = 5
 
 class Navigator:
     """
@@ -66,8 +68,8 @@ class Navigator:
         self.plan_start = [0.,0.]
         
         # Robot limits
-        self.v_max = rospy.get_param("~v_max", 0.3)    # 0.2    # maximum velocity
-        self.om_max = rospy.get_param("~om_max", 1.0)   # 0.4   # maximum angular velocity
+        self.v_max = rospy.get_param("~v_max", 0.2)    # 0.2    # maximum velocity
+        self.om_max = rospy.get_param("~om_max", 0.4)   # 0.4   # maximum angular velocity
 
         self.v_des = 0.12   # desired cruising velocity
         self.theta_start_thresh = 0.05   # threshold in theta to start moving forward when path-following
@@ -114,8 +116,58 @@ class Navigator:
         rospy.Subscriber('/delivery_request', String, self.delivery_request_callback)
         rospy.Subscriber('/detector/objects', DetectedObjectList, self.detected_objects_name_callback, queue_size=10)
 
+        # Vendor state
+        self.vendor_start  = None  # Starting time of vendor state
+        self.vendor_time   = 4.0   # 3-5s stop time
+        self.gotovendor    = False
+        self.home_location = [3.15,1.6,0.0]
+
+        #############################################################
+        # Stop state
+        # Time to stop at a stop sign
+        self.stop_time = rospy.get_param("~stop_time", 5.)
+
+        # Minimum distance from a stop sign to obey it
+        self.stop_min_dist = rospy.get_param("~stop_min_dist", 1.5)  # original value 0.5
+
+        # Time taken to cross an intersection
+        self.crossing_time = rospy.get_param("~crossing_time", 3.)
+
+        # Stop sign detector
+        rospy.Subscriber('/detector/stop_sign', DetectedObject, self.stop_sign_detected_callback)
+        #############################################################
+
         print "finished init"
-        
+
+    def stop_sign_detected_callback(self, msg):
+        """ callback for when the detector has found a stop sign. Note that
+        a distance of 0 can mean that the lidar did not pickup the stop sign at all """
+
+        rospy.loginfo("Detected stop sign. Start stopping")
+        # distance of the stop sign
+        dist = msg.distance
+        # if close enough and in track mode, stop
+        if dist > 0 and dist < self.stop_min_dist and self.mode == Mode.TRACK:
+            self.init_stop_sign()
+
+    def init_stop_sign(self):
+        """ initiates a stop sign maneuver """
+
+        self.stop_sign_start = rospy.get_rostime()
+        self.switch_mode(Mode.STOP)
+
+    def has_stopped(self):
+        """ checks if stop sign maneuver is over """
+
+        return self.mode == Mode.STOP and \
+               rospy.get_rostime() - self.stop_sign_start > rospy.Duration.from_sec(self.stop_time)
+
+    def stay_idle(self):
+        """ sends zero velocity to stay put """
+
+        vel_g_msg = Twist()
+        self.nav_vel_pub.publish(vel_g_msg)
+
     def dyn_cfg_callback(self, config, level):
         rospy.loginfo("Reconfigure Request: k1:{k1}, k2:{k2}, k3:{k3}, spline_alpha:{spline_alpha}, traj_dt:{traj_dt}".format(**config))
         self.pose_controller.k1 = config["k1"]
@@ -139,8 +191,9 @@ class Navigator:
         if msg.data in self.detected_objects:
             rospy.loginfo("New order: %s, set goal: %s" % (msg.data, str(self.detected_objects[msg.data])))
             self.x_g, self.y_g, self.theta_g = self.detected_objects[msg.data]
+            self.switch_mode(Mode.ALIGN)
             self.replan()
-
+            self.gotovendor = True
         else:
             rospy.loginfo("New order: %s, no goal found. " % (msg.data))
             
@@ -156,6 +209,9 @@ class Navigator:
             self.x_g = data.x
             self.y_g = data.y
             self.theta_g = data.theta
+
+            # start over everytime we change the pose
+            #self.switch_mode(Mode.ALIGN)
             self.replan()
 
     def map_md_callback(self, msg):
@@ -179,7 +235,7 @@ class Navigator:
                                                   self.map_height,
                                                   self.map_origin[0],
                                                   self.map_origin[1],
-                                                  8,
+                                                  6, # TODO: was 8
                                                   self.map_probs)
             if self.x_g is not None:
                 # if we have a goal to plan to, replan
@@ -207,6 +263,7 @@ class Navigator:
         returns whether the robot has reached the goal position with enough
         accuracy to return to idle state
         """
+        print(linalg.norm(np.array([self.x-self.x_g, self.y-self.y_g])))
         return (linalg.norm(np.array([self.x-self.x_g, self.y-self.y_g])) < self.at_thresh and abs(wrapToPi(self.theta - self.theta_g)) < self.at_thresh_theta)
 
     def aligned(self):
@@ -272,6 +329,7 @@ class Navigator:
         cmd_vel = Twist()
         cmd_vel.linear.x = V
         cmd_vel.angular.z = om
+        rospy.loginfo("Reconfigure Request: V: %f, om:%f, mode: %s" % (V, om, self.mode))
         self.nav_vel_pub.publish(cmd_vel)
 
     def get_current_plan_time(self):
@@ -305,6 +363,10 @@ class Navigator:
 
         rospy.loginfo("Navigator: computing navigation plan")
         success =  problem.solve()
+        if success:
+            rospy.loginfo("Navigator: computing navigation plan SUCCESS!!!!!!!!")
+        else:
+            rospy.loginfo("Navigator: computing navigation plan FAILLLLL!!")
         if not success:
             rospy.loginfo("Planning failed")
             return
@@ -398,8 +460,25 @@ class Navigator:
                     self.x_g = None
                     self.y_g = None
                     self.theta_g = None
-                    self.switch_mode(Mode.IDLE)
-
+                    if self.gotovendor:
+                        self.switch_mode(Mode.VENDOR)
+                    else:
+                        self.switch_mode(Mode.IDLE)
+            elif self.mode == Mode.VENDOR:
+                if self.vendor_start == None:
+                    self.vendor_start = rospy.get_rostime()
+                t_vendor = (rospy.get_rostime()-self.vendor_start).to_sec()
+                if t_vendor > self.vendor_time:
+                    self.x_g,self.y_g,self.theta_g = self.home_location
+                    self.switch_mode(Mode.ALIGN)
+                    self.vendor_start,self.gotovendor = None,False
+            elif self.mode == Mode.STOP:
+                # At a stop sign
+                if self.has_stopped():
+                    self.switch_mode(Mode.ALIGN)
+                else:
+                    self.stay_idle()
+                
             self.publish_control()
             rate.sleep()
 

@@ -58,26 +58,23 @@ class TrajectoryTracker:
         x_d, xd_d, xdd_d, y_d, yd_d, ydd_d = self.get_desired_state(t)
 
         ########## Code starts here ##########
-        V = 0
-        om = 0
+        V_nominal = np.sqrt(xd_d**2 + yd_d**2)
+        if self.V_prev < V_PREV_THRES:
+            self.V_prev = V_nominal
 
-        # use the prev V
-        if np.absolute(self.V_prev) < V_PREV_THRES:
-            #self.reset()
-            sign = np.sign(self.V_prev) if self.V_prev != 0 else 1.0
-            self.V_prev = sign * V_PREV_THRES
+        xd = self.V_prev*np.cos(th)
+        yd = self.V_prev*np.sin(th)
 
-        xd = self.V_prev * np.cos(th)
-        yd = self.V_prev * np.sin(th)
+        J = np.array([[np.cos(th),-self.V_prev*np.sin(th)],
+                      [np.sin(th),self.V_prev*np.cos(th)]])
 
-        xdd = xdd_d + self.kpx * (x_d - x) + self.kdx * (xd_d - xd)
-        ydd = ydd_d + self.kpy * (y_d - y) + self.kdy * (yd_d - yd)
+        u1 = xdd_d + self.kpx*(x_d-x) + self.kdx*(xd_d-xd)
+        u2 = ydd_d + self.kpy*(y_d-y) + self.kdy*(yd_d-yd)
 
-        J = np.array([[np.cos(th), -self.V_prev*np.sin(th)], [np.sin(th), self.V_prev*np.cos(th)]])
-        
-        alpha,om = np.dot(np.linalg.inv(J), np.array([xdd, ydd]))
+        sol = np.linalg.solve(J,np.array([u1,u2]))
 
-        V = self.V_prev + alpha * dt
+        om  = sol[1]
+        V   = self.V_prev + sol[0]*dt
         ########## Code ends here ##########
 
         # apply control limits
