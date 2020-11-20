@@ -19,30 +19,27 @@ def compute_smoothed_traj(path, V_des, alpha, dt):
     Hint: Use splrep and splev from scipy.interpolate
     """
     ########## Code starts here ##########
-    from scipy.interpolate import splev, splrep
-    sz = len(path)
-    extended_ts = [0.0]
-    ts = [0.0]
-    for i in range(1, sz):
-        l = np.linalg.norm(np.array(path[i-1]) - np.array(path[i])) * 1.2
-        tm = l/V_des
-        extended_ts = extended_ts + list(np.arange(extended_ts[-1], extended_ts[-1] + tm, dt))
-        ts.append(ts[-1] + tm)
+    from scipy.interpolate import splrep, splev
+    path = np.array(path)
+    tseg = np.linalg.norm(np.diff(path,axis=0),axis=1)/V_des
+    t    = np.insert(np.cumsum(tseg),0,0)
+    t_sm = np.arange(0,t[-1],dt)
 
-    sa = splrep(ts, np.array(path)[:,0])
-    sb = splrep(ts, np.array(path)[:,1])
+    splx = splrep(t,path[:,0],s=alpha)
+    sply = splrep(t,path[:,1],s=alpha)
+    
+    x    = splev(t_sm, splx)
+    x_d  = splev(t_sm, splx, der=1)
+    x_dd = splev(t_sm, splx, der=2)
 
-    traj_smoothed = np.zeros((len(extended_ts), 7))
-    traj_smoothed[:,0] = splev(extended_ts, sa)
-    traj_smoothed[:,1] = splev(extended_ts, sb)
-    traj_smoothed[:,3] = splev(extended_ts, sa, der=1)
-    traj_smoothed[:,4] = splev(extended_ts, sb, der=1)    
-    traj_smoothed[:,5] = splev(extended_ts, sa, der=2)
-    traj_smoothed[:,6] = splev(extended_ts, sb, der=2)
+    y    = splev(t_sm, sply)
+    y_d  = splev(t_sm, sply, der=1)
+    y_dd = splev(t_sm, sply, der=2)
 
-    traj_smoothed[:,2] = np.arccos(traj_smoothed[:,3]/(traj_smoothed[:,3]**2 + traj_smoothed[:,4]**2)**0.5) 
+    th   = np.arctan2(y_d,x_d)
 
-    t_smoothed = extended_ts
+    traj_smoothed = np.column_stack([x,y,th,x_d,y_d,x_dd,y_dd])
+    t_smoothed    = t_sm
     ########## Code ends here ##########
 
     return traj_smoothed, t_smoothed

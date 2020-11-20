@@ -125,16 +125,19 @@ class Navigator:
         #############################################################
         # Stop state
         # Time to stop at a stop sign
-        self.stop_time = rospy.get_param("~stop_time", 5.)
+        self.stop_time = rospy.get_param("~stop_time", 10.)
 
         # Minimum distance from a stop sign to obey it
-        self.stop_min_dist = rospy.get_param("~stop_min_dist", 1.5)  # original value 0.5
+        self.stop_min_dist = rospy.get_param("~stop_min_dist", 0.8)  # original value 0.5
 
         # Time taken to cross an intersection
         self.crossing_time = rospy.get_param("~crossing_time", 3.)
 
         # Stop sign detector
         rospy.Subscriber('/detector/stop_sign', DetectedObject, self.stop_sign_detected_callback)
+        self.stopped = False
+        self.v = 0.0
+        self.stop_sign_start = None
         #############################################################
 
         print "finished init"
@@ -143,17 +146,20 @@ class Navigator:
         """ callback for when the detector has found a stop sign. Note that
         a distance of 0 can mean that the lidar did not pickup the stop sign at all """
 
-        rospy.loginfo("Detected stop sign. Start stopping")
+        rospy.loginfo("Detected stop sign")
         # distance of the stop sign
         dist = msg.distance
         # if close enough and in track mode, stop
-        if dist > 0 and dist < self.stop_min_dist and self.mode == Mode.TRACK:
+        print("stop sign dust: %s, stopped: %s " % (dist, self.stopped))
+        if dist > 0 and dist < self.stop_min_dist and (self.mode == Mode.TRACK or self.mode == Mode.VENDOR) and not self.stopped:
+            rospy.loginfo("Start stopping")
             self.init_stop_sign()
+            
 
     def init_stop_sign(self):
         """ initiates a stop sign maneuver """
-
         self.stop_sign_start = rospy.get_rostime()
+        self.stopped = True
         self.switch_mode(Mode.STOP)
 
     def has_stopped(self):
@@ -183,20 +189,27 @@ class Navigator:
         rospy.loginfo("There are %i detected objects" % len(msg.objects))
         #self.detected_objects = msg
         for obj in msg.objects:
-            rospy.loginfo("obj1: %s" % msg.objects[0])
+            rospy.loginfo("obj1: %s" % obj)
             self.detected_objects[obj] = (self.x, self.y, self.theta)
         self.last_box_time = rospy.get_rostime()
 
-    def delivery_request_callback(self, msg):
-        if msg.data in self.detected_objects:
-            rospy.loginfo("New order: %s, set goal: %s" % (msg.data, str(self.detected_objects[msg.data])))
-            self.x_g, self.y_g, self.theta_g = self.detected_objects[msg.data]
-            self.switch_mode(Mode.ALIGN)
+    def deliver_one(self):
+        if not self.orderlist:
+            self.vendor_start,self.gotovendor = None,False       
+            return
+
+        data = self.orderlist.pop(0)    
+        if data in self.detected_objects:    
+            rospy.loginfo("Popping order: %s, set goal: %s" % (data, str(self.detected_objects[data])))
+            self.x_g, self.y_g, self.theta_g = self.detected_objects[data]
+            self.gotovendor = True            
             self.replan()
-            self.gotovendor = True
         else:
             rospy.loginfo("New order: %s, no goal found. " % (msg.data))
-            
+
+    def delivery_request_callback(self, msg):
+        self.orderlist = msg.data.split(',')
+        self.deliver_one()
         # plan the robot
         self.last_box_time = rospy.get_rostime()
 
@@ -326,6 +339,7 @@ class Navigator:
             V = 0.
             om = 0.
 
+        self.v = V
         cmd_vel = Twist()
         cmd_vel.linear.x = V
         cmd_vel.angular.z = om
@@ -368,6 +382,7 @@ class Navigator:
         else:
             rospy.loginfo("Navigator: computing navigation plan FAILLLLL!!")
         if not success:
+            self.gotovendor = False
             rospy.loginfo("Planning failed")
             return
         rospy.loginfo("Planning Succeeded")
@@ -440,7 +455,7 @@ class Navigator:
             # STATE MACHINE LOGIC
             # some transitions handled by callbacks
             if self.mode == Mode.IDLE:
-                pass
+                self.stopped = False
             elif self.mode == Mode.ALIGN:
                 if self.aligned():
                     self.current_plan_start_time = rospy.get_rostime()
@@ -469,13 +484,18 @@ class Navigator:
                     self.vendor_start = rospy.get_rostime()
                 t_vendor = (rospy.get_rostime()-self.vendor_start).to_sec()
                 if t_vendor > self.vendor_time:
-                    self.x_g,self.y_g,self.theta_g = self.home_location
-                    self.switch_mode(Mode.ALIGN)
-                    self.vendor_start,self.gotovendor = None,False
+                    if not self.orderlist:
+                        self.x_g,self.y_g,self.theta_g = self.home_location
+                        self.vendor_start,self.gotovendor = None,False                    
+                        self.replan()  
+                    else:
+                        self.deliver_one()
+                    
             elif self.mode == Mode.STOP:
                 # At a stop sign
                 if self.has_stopped():
-                    self.switch_mode(Mode.ALIGN)
+                    self.replan()
+                    self.stop_sign_start = None
                 else:
                     self.stay_idle()
                 
