@@ -156,7 +156,7 @@ class AStar(object):
         """
         ########## Code starts here ##########
         iter = 0
-        while (len(self.open_set) > 0) and (iter<200):
+        while (len(self.open_set) > 0) and (iter<500):
             iter += 1
             if iter % 100 == 0:
                 print("iter %d",iter)

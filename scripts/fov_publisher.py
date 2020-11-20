@@ -139,12 +139,11 @@ def publisher():
         ani_marker.pose.position.z = 0.9
 
         ani_marker.pose.orientation = marker.pose.orientation
+        ani_marker.text = ""
         if obj_name == "dog":
             ani_marker.text = "Woof!"
         elif obj_name == "cat":
             ani_marker.text = "Meow!"
-        else:
-            ani_marker.text = ""
 
         ani_marker.scale.z = 1
 

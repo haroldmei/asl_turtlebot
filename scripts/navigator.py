@@ -125,10 +125,10 @@ class Navigator:
         #############################################################
         # Stop state
         # Time to stop at a stop sign
-        self.stop_time = rospy.get_param("~stop_time", 10.)
+        self.stop_time = rospy.get_param("~stop_time", 5.)
 
         # Minimum distance from a stop sign to obey it
-        self.stop_min_dist = rospy.get_param("~stop_min_dist", 0.8)  # original value 0.5
+        self.stop_min_dist = rospy.get_param("~stop_min_dist", 0.6)  # original value 0.5
 
         # Time taken to cross an intersection
         self.crossing_time = rospy.get_param("~crossing_time", 3.)
@@ -146,13 +146,13 @@ class Navigator:
         """ callback for when the detector has found a stop sign. Note that
         a distance of 0 can mean that the lidar did not pickup the stop sign at all """
 
-        rospy.loginfo("Detected stop sign")
+        #rospy.loginfo("Detected stop sign")
         # distance of the stop sign
         dist = msg.distance
         # if close enough and in track mode, stop
-        print("stop sign dust: %s, stopped: %s " % (dist, self.stopped))
+        #print("stop sign dust: %s, stopped: %s " % (dist, self.stopped))
         if dist > 0 and dist < self.stop_min_dist and (self.mode == Mode.TRACK or self.mode == Mode.VENDOR) and not self.stopped:
-            rospy.loginfo("Start stopping")
+            #rospy.loginfo("Start stopping")
             self.init_stop_sign()
             
 
@@ -186,10 +186,10 @@ class Navigator:
         return config
 
     def detected_objects_name_callback(self, msg):
-        rospy.loginfo("There are %i detected objects" % len(msg.objects))
+        #rospy.loginfo("There are %i detected objects" % len(msg.objects))
         #self.detected_objects = msg
         for obj in msg.objects:
-            rospy.loginfo("obj1: %s" % obj)
+            #rospy.loginfo("obj1: %s" % obj)
             self.detected_objects[obj] = (self.x, self.y, self.theta)
         self.last_box_time = rospy.get_rostime()
 
@@ -250,7 +250,7 @@ class Navigator:
                                                   self.map_origin[1],
                                                   6, # TODO: was 8
                                                   self.map_probs)
-            if self.x_g is not None:
+            if self.x_g is not None and self.mode != Mode.STOP:
                 # if we have a goal to plan to, replan
                 rospy.loginfo("replanning because of new map")
                 self.replan() # new map, need to replan
@@ -276,7 +276,7 @@ class Navigator:
         returns whether the robot has reached the goal position with enough
         accuracy to return to idle state
         """
-        print(linalg.norm(np.array([self.x-self.x_g, self.y-self.y_g])))
+        #print(linalg.norm(np.array([self.x-self.x_g, self.y-self.y_g])))
         return (linalg.norm(np.array([self.x-self.x_g, self.y-self.y_g])) < self.at_thresh and abs(wrapToPi(self.theta - self.theta_g)) < self.at_thresh_theta)
 
     def aligned(self):
@@ -343,7 +343,7 @@ class Navigator:
         cmd_vel = Twist()
         cmd_vel.linear.x = V
         cmd_vel.angular.z = om
-        rospy.loginfo("Reconfigure Request: V: %f, om:%f, mode: %s" % (V, om, self.mode))
+        # rospy.loginfo("Reconfigure Request: V: %f, om:%f, mode: %s" % (V, om, self.mode))
         self.nav_vel_pub.publish(cmd_vel)
 
     def get_current_plan_time(self):
@@ -506,3 +506,35 @@ if __name__ == '__main__':
     nav = Navigator()
     rospy.on_shutdown(nav.shutdown_callback)
     nav.run()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

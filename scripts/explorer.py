@@ -21,7 +21,7 @@ class GoalPoseCommander:
         # command pose for controller
         self.nav_goal_publisher = rospy.Publisher('/cmd_nav', Pose2D, queue_size=10)
         self.goal_idx = 0
-        self.goals = [[3.3, 0.25, 3], [2.25, 0.45, 2.355], [0.25, 0.37, 1.5], [0.3, 2.1, 0.7], [2.3, 2.5, -1.5],[3.15,1.6,0.0]]
+        self.goals = [[3.3, 0.25, 3], [2.35, 0.45, 2.355], [0.25, 0.37, 1.5], [0.3, 2.2, -1.57], [2.4, 2.6, 1.57],[3.15,1.6,0.0]]
 
     def load_next_goal(self):
         try:
